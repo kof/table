@@ -1,0 +1,28 @@
+.ui-table table {
+    border-collapse: collapse;
+    border-spacing: 0;
+    font-size: inherit;
+}
+.ui-table th, .ui-table td {
+    margin: 0;
+    padding: 0;
+}
+
+.ui-table td {
+    text-align: left;
+}
+
+.ui-table th {
+    text-align: center;
+}
+
+.ui-table .ui-table-body {
+    overflow: auto;
+}
+.ui-table {
+    overflow: hidden;
+}
+
+.ui-table .ui-table-cell-content {
+    display: inline;
+}

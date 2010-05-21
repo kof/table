@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Table demo</title>
+    <link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/themes/base/jquery.ui.all.css" rel="stylesheet" type="text/css"/>
+    <link href="../src/jquery.ui.table.css" rel="stylesheet" type="text/css"/>
+    
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.js"></script>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.1/jquery-ui.js"></script>
+    <script type="text/javascript" src="../src/jquery.ui.table.js"></script>
+</head>
+<body>
+<button onclick="render(data1)">render</button>
+<button onclick="update(data2)">update</button>
+<button onclick="scrollTo(30)">scrollTo 30</button>
+
+<div class="table" style=""></div>
+<div class="table" style=""></div>
+
+<script>
+
+var data1 = [],
+    data2 = [];
+var row = function(){};
+row.prototype = {id: 0, name: 'Oleg', date: '02.01.1985', price: '100'}; 
+
+for ( var i = 0; i<100; ++i ) {
+    data1[i] = new row;
+    data1[i].id = i;
+}
+
+for ( var i = 0; i<100; ++i ) {
+    data2[i] = new row;
+    data2[i].id = i;
+    data2[i].name = 'Oleg <br />Slobodskoi';
+}
+
+
+function render(data){
+    //console.time('rendering');    
+    $('.table').table({
+        columns: [
+            {id: 'id', header: 'Number' },
+            {id: 'name', header: 'Name' },
+            {id: 'date', header: 'Date' },
+            {id: 'price', header: 'Price' }
+        ],
+        data: data,
+        width: 400,
+        height: 300
+    });
+    //console.timeEnd('rendering');    
+    
+}
+render(data1)    
+
+function update( data ) {
+    $('.table:first').table('update', data);
+}
+
+function scrollTo( nr ) {
+    $('.table').table('scrollTo', nr);
+    
+}
+
+</script>    
+</body>
+</html>
