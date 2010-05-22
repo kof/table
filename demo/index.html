@@ -55,11 +55,11 @@ function render(data){
 render(data1)    
 
 function update( data ) {
-    $('.table:first').table('update', data);
+    $('.table:first').table('option', 'data', data);
 }
 
 function scrollTo( nr ) {
-    $('.table').table('scrollTo', nr);
+    $('.table').table('scrollToRow', nr);
     
 }
 

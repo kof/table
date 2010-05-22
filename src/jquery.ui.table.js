@@ -14,15 +14,15 @@
 (function( $ ) {
 
 var prefix = "ui-table",
-    baseClasses = "ui-table ui-widget ui-widget-content";
+    baseClasses = "ui-table ui-widget ui-widget-content ui-corner-all";
 
 var headTemplate = '\
-    <table class="<%=prefix%>-head-table" cellspacing="0" cellpadding="0" border="1" width="100%" height="100%">\
+    <table class="<%=prefix%>-head-table" cellspacing="0" cellpadding="0" border="0" width="100%" height="100%">\
         <thead>\
             <tr>\
                 <% for ( var i=0; i<columns.length; ++i) { %>\
                     <th>\
-                        <div class="<%=prefix%>-cell-content">\
+                        <div class="<%=prefix%>-cell-inner">\
                             <span class="<%=prefix%>-sort-icon"></span>\
                             <span class="<%=prefix%>-header">\
                                 <%=columns[i].header%>\
@@ -36,13 +36,13 @@ var headTemplate = '\
 ';
 
 var bodyTemplate = '\
-    <table class="<%=prefix%>-body-table" cellspacing="0" cellpadding="0" border="1" width="100%" height="100%">\
+    <table class="<%=prefix%>-body-table" cellspacing="0" cellpadding="0" border="0" width="100%" height="100%">\
         <tbody>\
             <% for ( var i=0; i<data.length; ++i) { %>\
             <tr>\
                 <% for ( var cell in data[i] ) { %>\
                 <td>\
-                    <div class="<%=prefix%>-cell-content">\
+                    <div class="<%=prefix%>-cell-inner">\
                         <%=data[i][cell]%>\
                     </div>\
                 </td>\
@@ -87,112 +87,149 @@ $.widget( "ui.table", {
                 height: o.height
             });
         
-        var headHtml = tmpl(o.templates.head, {
+        // don't use .html to get more performance       
+        this.head[0].innerHTML = tmpl(o.templates.head, {
             columns: o.columns,
             prefix: prefix
-        });    
-        // don't use .html to get more performance       
-        this.head.each(function(){
-            this.innerHTML = headHtml;    
         });
         this.headHeight = this.head.outerHeight();
-        
-        this._updateBody(o.data);
+
+        this._updateBody();
+        this.bodyTable = this.body.children("table");
         this._defColsWidth();
         this._setBodyHeight();
-        
-    },
+        this.bodyTableHeight = this.bodyTable.height();
+        this.scrollBar = this.bodyHeight < this.bodyTableHeight;
+        this.scrollBar && this.head.css( "marginRight", scrollbarWidth() );      
+   },
     
     destroy: function() {
         this.element
             .removeClass( baseClasses )
             .removeAttr( "role" )
             .html(this.originalHtml);
+            
         $.Widget.prototype.destroy.apply( this, arguments );
     },
          
-    update: function( data ) {
-        this._updateBody(data);
-        this._defColsWidth();
-        this._setOption( "data", data );
+    _setOption: function( key, value ) {
+        switch ( key ) {
+            case "data":
+                this.options.data = value;
+                this._updateBody();
+                this._defColsWidth();
+                this._trigger( "datachange", null, this._ui() );
+                break;
+        }
+
+        $.Widget.prototype._setOption.apply( this, arguments );
+    },          
+    
+    scrollToRow: function( nr, speed, easing, callback ) {
+        if ( nr < 0 ) {
+            nr = 0;
+        } else if ( nr > this.options.data.length-1 ) {
+            nr = this.options.data.length-1;
+        }
+
+        var offsetTop = $("tr:eq(" + nr + ")", this.body)[0].offsetTop;
+        this.body.animate({scrollTop: offsetTop }, speed || this.options.speed, easing, callback);
     },
     
-    scrollTo: function( nr, speed, easing, callback ) {
-        var o = this.options;
-        this.body.each(function(){
-            var offsetTop = $("tr:eq(" + nr + ")", this)[0].offsetTop;
-            $(this).animate({scrollTop: offsetTop }, speed || o.speed, easing, callback);    
-        });        
-    },
-    
-    _updateBody: function( data ) {
-        var bodyHtml = tmpl(this.options.templates.body, {
-            data: data,
-            prefix: prefix
-        }); 
+    _updateBody: function() {
         // don't use .html to get more performance       
-        this.body.each(function() {
-            this.innerHTML = bodyHtml;
-        });                
+        this.body[0].innerHTML = tmpl(this.options.templates.body, {
+            data: this.options.data,
+            prefix: prefix
+        });
     },     
            
     _setBodyHeight: function() {
-        this.body.css("height", this.options.height - this.headHeight);    
+        this.bodyHeight = this.options.height - this.headHeight;
+        this.body.css("height", this.bodyHeight);    
     },
     
     // we have to apply the cols width to ths elements, since it is an extra table
     _defColsWidth: function() {
         var o = this.options,
-            ths = this.head.find("." + prefix + "-cell-content"),
-            tds = this.body.find("tr:first ." + prefix + "-cell-content"),
-            width;
-        
+            ths = this.head.find("th"),
+            tds = this.body.find("tr:first td"),
+            th, td,
+            width, thWidth,
+            i = 0;
+            
         // browser will auto calc last column width
-        for ( var i=0, data; i < o.columns.length-1; ++i) {
-            data = o.columns[i];
-            width = data.width;
-            // only detect width if not set
-            if ( !width ) {
-                width = tds.eq(i).width();
-            }    
-            // td width can't be smaller then th width
-            var thWidth = ths.eq(i).width();
-            
-            if (thWidth > width) {
-                width = thWidth;
+        for ( ; i < o.columns.length; ++i ) {
+            width = o.columns[i].width;
+            if ( width ) {
+                th = ths.eq(i);
+                td = tds.eq(i);
+                td.add(th).css( "width", width ); 
             }
-            
-            tds.eq(i).parent().add(ths.eq(i).parent()).css("width", width);
-            
+
+        }
+    },
+    
+    _ui: function() {
+        return {
+            data: this.options.data,
+            columns: this.options.columns
         }
     }
 
 });
+
+/*
+ * Detect system scrollbar width
+ * this should be an extra widget or plugin
+ */
+var scrollbarWidth = (function(){
+    var width;
+    function scrollbarWidth() {
+        if ( width ) 
+            return width;
+        
+        var $parent = $('<div style="width:50px;height:50px;overflow:hidden;position:absolute;top:-200px;left:-200px;"/>').appendTo('body'),
+            $child = $('<div style="height:100%;"/>').appendTo($parent),
+            realWidth = $child.innerWidth();
+            
+        $parent.css('overflow', 'scroll');
+        
+        width = realWidth - $child.innerWidth();    
+        $parent.remove();
+        return width;
+    }   
+    return scrollbarWidth; 
+})();
 
 
 /*
  * micro templating engine
  * can be replaced with new template engine from the core
  */
-var cache = {};
-function tmpl(str, data) {
-    var fn = !/\W/.test(str) ?
-      cache[str] = cache[str] ||
-        tmpl(document.getElementById(str).innerHTML) :
-      new Function("obj",
-        "var p=[],print=function(){p.push.apply(p,arguments);};" +
-       
-        "with(obj){p.push('" +
-        str
-          .replace(/[\r\t\n]/g, " ")
-          .split("<%").join("\t")
-          .replace(/((^|%>)[^\t]*)'/g, "$1\r")
-          .replace(/\t=(.*?)%>/g, "',$1,'")
-          .split("\t").join("');")
-          .split("%>").join("p.push('")
-          .split("\r").join("\\'")
-      + "');}return p.join('');");
-    return data ? fn( data ) : fn;
-}
+var tmpl = (function(){
+    var cache = {};
+    function tmpl(str, data) {
+        var fn = !/\W/.test(str) ?
+          cache[str] = cache[str] ||
+            tmpl(document.getElementById(str).innerHTML) :
+          new Function("obj",
+            "var p=[],print=function(){p.push.apply(p,arguments);};" +
+           
+            "with(obj){p.push('" +
+            str
+              .replace(/[\r\t\n]/g, " ")
+              .split("<%").join("\t")
+              .replace(/((^|%>)[^\t]*)'/g, "$1\r")
+              .replace(/\t=(.*?)%>/g, "',$1,'")
+              .split("\t").join("');")
+              .split("%>").join("p.push('")
+              .split("\r").join("\\'")
+          + "');}return p.join('');");
+        return data ? fn( data ) : fn;
+    }
+    return tmpl;    
+})();
+
 
 })( jQuery );

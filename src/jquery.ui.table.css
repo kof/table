@@ -2,18 +2,26 @@
     border-collapse: collapse;
     border-spacing: 0;
     font-size: inherit;
+    table-layout: fixed;    
 }
 .ui-table th, .ui-table td {
     margin: 0;
     padding: 0;
+    border: 1px solid #AAAAAA;
+    white-space: nowrap;
+    overflow: hidden;
+    border-width: 0 1px 0 0;
 }
 
 .ui-table td {
     text-align: left;
+    vertical-align: top;    
+    border-width: 0 1px 1px 0;
 }
 
 .ui-table th {
     text-align: center;
+    border-width: 0 1px 1px 0;
 }
 
 .ui-table .ui-table-body {
@@ -23,6 +31,8 @@
     overflow: hidden;
 }
 
-.ui-table .ui-table-cell-content {
-    display: inline;
+.ui-table .ui-table-cell-inner {
+    white-space: nowrap;
+    overflow: hidden;
+    padding: 2px;
 }
