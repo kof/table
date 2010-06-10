@@ -22,16 +22,16 @@
 var data1 = [],
     data2 = [];
 var row = function(){};
-row.prototype = {id: 0, name: 'Oleg', date: '02.01.1985', price: '100'}; 
+row.prototype = {i: 0, name: 'Oleg', date: '02.01.1985', price: '100'}; 
 
 for ( var i = 0; i<100; ++i ) {
     data1[i] = new row;
-    data1[i].id = i;
+    data1[i].i = i;
 }
 
 for ( var i = 0; i<100; ++i ) {
     data2[i] = new row;
-    data2[i].id = i;
+    data2[i].i = i;
     data2[i].name = 'Oleg <br />Slobodskoi';
 }
 
@@ -40,10 +40,10 @@ function render(data){
     //console.time('rendering');    
     $('.table').table({
         columns: [
-            {id: 'id', header: 'Number' },
-            {id: 'name', header: 'Name' },
-            {id: 'date', header: 'Date' },
-            {id: 'price', header: 'Price' }
+            {dataIndex: 'i', header: 'Number' },
+            {dataIndex: 'name', header: 'Name' },
+            {dataIndex: 'date', header: 'Date' },
+            {dataIndex: 'price', header: 'Price' }
         ],
         data: data,
         width: 400,
@@ -55,7 +55,7 @@ function render(data){
 render(data1)    
 
 function update( data ) {
-    $('.table:first').table('option', 'data', data);
+    $('.table:first').table('update', data);
 }
 
 function scrollTo( nr ) {
