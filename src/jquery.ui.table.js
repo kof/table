@@ -13,13 +13,57 @@
  */
 (function( $ ) {
 
+var prefix = "ui-table",
+    baseClasses = "ui-table ui-widget ui-widget-content ui-corner-all";
+
+var headTemplate = '\
+    <table class="<%=prefix%>-head-table" cellspacing="0" cellpadding="0" border="0" width="100%" height="100%">\
+        <thead>\
+            <tr>\
+                <% for ( var i=0; i<columns.length; ++i) { %>\
+                    <th>\
+                        <div class="<%=prefix%>-cell-inner">\
+                            <span class="<%=prefix%>-sort-icon"></span>\
+                            <span class="<%=prefix%>-header">\
+                                <%=columns[i].header%>\
+                            </span>\
+                        </div>\
+                    </th>\
+                <% } %>\
+            </tr>\
+        </thead>\
+    </table>\
+';
+
+var bodyTemplate = '\
+    <table class="<%=prefix%>-body-table" cellspacing="0" cellpadding="0" border="0" width="100%" height="100%">\
+        <tbody>\
+            <% for ( var i=0; i<data.length; ++i) { %>\
+            <tr>\
+                <% for ( var cell in data[i] ) { %>\
+                <td>\
+                    <div class="<%=prefix%>-cell-inner">\
+                        <%=data[i][cell]%>\
+                    </div>\
+                </td>\
+                <% } %>\
+            </tr>\
+            <% } %>\
+        </tbody>\
+    </table>\
+';
+
 $.widget( "ui.table", {
     version: "@VERSION",
     options: {
         columns: null,
         data: null,
+        templates: {
+            head: headTemplate,
+            body: bodyTemplate
+        }, 
         width: "100%",
-        height: "100%",
+        height: "auto",
         type: "text",
         speed: 300
     },
@@ -27,83 +71,59 @@ $.widget( "ui.table", {
     _create: function() {
         var o = this.options;
         
-        if ( !o.columns || !o.data ) {
+        if ( !o.columns || !o.data ) 
             return;
-        } 
             
         this.originalHtml = this.element.html();
-        this.originalData = o.data;
         
-        this.dataIndexHash = {};
-        for ( var i = 0; i < o.columns.length; ++i ) {
-            this.dataIndexHash[o.columns[i].dataIndex] = o.columns[i];
-        }
-        
-        this.head = $( "<div class='" + classes.widget + "-head'></div>" ).appendTo( this.element );
-        this.body = $( "<div class='" + classes.widget + "-body'></div>" ).appendTo( this.element );
+        this.head = $("<div class='" + prefix + "-head'></div>").appendTo(this.element);
+        this.body = $("<div class='" + prefix + "-body'></div>").appendTo(this.element);
         
         this.element
-            .addClass( classes.base )
-            .attr( "role", "table" )
+            .addClass( baseClasses )
+            .attr("role", "table")
             .css({
                 width: o.width,
                 height: o.height
             });
-            
-        // use innerHTML to get better performance
-        this.head[0].innerHTML = tmpl( headTemplate, {
-            columns: o.columns,
-            classes: classes
-        });
         
+        // don't use .html to get more performance       
+        this.head[0].innerHTML = tmpl(o.templates.head, {
+            columns: o.columns,
+            prefix: prefix
+        });
         this.headHeight = this.head.outerHeight();
 
         this._updateBody();
+        this.bodyTable = this.body.children("table");
+        this._defColsWidth();
         this._setBodyHeight();
+        this.bodyTableHeight = this.bodyTable.height();
+        this.scrollBar = this.bodyHeight < this.bodyTableHeight;
+        this.scrollBar && this.head.css( "marginRight", scrollbarWidth() );      
    },
     
     destroy: function() {
         this.element
-            .removeClass( classes.base )
+            .removeClass( baseClasses )
             .removeAttr( "role" )
-            .html( this.originalHtml );
+            .html(this.originalHtml);
             
         $.Widget.prototype.destroy.apply( this, arguments );
     },
          
     _setOption: function( key, value ) {
-        $.Widget.prototype._setOption.apply( this, arguments );
-
-        var o = this.options;
-        
         switch ( key ) {
             case "data":
-                this.originalData = value;
-                this._trigger( "datachange", null, {
-                    data: o.data,
-                    columns: o.columns
-                });
+                this.options.data = value;
+                this._updateBody();
+                this._defColsWidth();
+                this._trigger( "datachange", null, this._ui() );
                 break;
-            case "width":
-                this._setColsWidth();
-                this.element.css( "width", o.width );
-                this._trigger( "resize", null, {width: o.width, height: o.height} );
-                break;
-            case "height":
-                this.element.css( "height", o.height );
-                this._setBodyHeight();
-                this._trigger( "resize", null, {width: o.width, height: o.height} );
-                break;
+        }
 
-        }
-    },     
-    
-    update: function( data ) {
-        if ( data ) {
-            this._setOption( "data", data );
-        }
-        this._updateBody();
-    },     
+        $.Widget.prototype._setOption.apply( this, arguments );
+    },          
     
     scrollToRow: function( nr, speed, easing, callback ) {
         if ( nr < 0 ) {
@@ -116,139 +136,48 @@ $.widget( "ui.table", {
         this.body.animate({scrollTop: offsetTop }, speed || this.options.speed, easing, callback);
     },
     
-    filter: function( value, columns, caseSensitive ) {
-        value = $.trim( value );
-        this.options.data = !value || !columns ? this.originalData : this.find.apply( this, arguments );
-        this._updateBody();
-    },
-    
-    find: function( value, columns, caseSensitive ) {
-        if ( !caseSensitive && typeof value == "string" ) {
-            value = value.toLowerCase();
-        }
-            // always search in original data array            
-        var data = this.originalData,
-            newData = [],
-            col, row, cell,
-            type, filterHandler;
-            
-        for ( var i = 0; i < columns.length; ++i ) {
-            col = columns[i];
-            for ( var rowId = 0; rowId < data.length; ++rowId ) {
-                row = data[rowId];
-                cell = row[col];                 
-                if ( cell !== undefined ) {
-                    type = this.dataIndexHash[col].type;
-                    filterHandler = this.dataIndexHash[col].filterHandler;
-                    
-                    if ( !type || type === "string" ) {
-                        if ( !caseSensitive ) {
-                            cell = cell.toLowerCase();
-                        }
-                        if ( cell.indexOf( value ) >= 0 ) {
-                            newData.push( row );
-                        }
-                    } else if ( type === "number" ) {
-                        value = parseInt( value ); 
-                        if ( cell === value ) {
-                            newData.push( row );
-                        }       
-                    } else if ( filterHandler  ) {
-                        if ( filterHandler( value, row, rowId ) ) {
-                            newData.push( row );                            
-                        }
-                    }                    
-                }
-            }    
-        }           
-
-        return newData;     
-    },
-    
     _updateBody: function() {
         // don't use .html to get more performance       
-        this.body[0].innerHTML = tmpl( bodyTemplate, {
+        this.body[0].innerHTML = tmpl(this.options.templates.body, {
             data: this.options.data,
-            classes: classes,
-            dataIndexHash: this.dataIndexHash
+            prefix: prefix
         });
-
-        this.bodyTable = this.body.children("table");
-        this.bodyTableHeight = this.bodyTable.height();
-        this.ths = this.head.find( "th" );
-        this.tds = this.body.find( "tr:first td" );
-        this._setColsWidth();
     },     
            
     _setBodyHeight: function() {
         this.bodyHeight = this.options.height - this.headHeight;
-        this.body.css("height", this.bodyHeight);
-        this.scrollBar = this.bodyHeight < this.bodyTableHeight;
-        this.head.css( "marginRight", this.scrollBar ? scrollbarWidth() : 0 );
+        this.body.css("height", this.bodyHeight);    
     },
     
-    // we have to apply the width to tds and ths, since there are 2 tables
-    _setColsWidth: function() {
+    // we have to apply the cols width to ths elements, since it is an extra table
+    _defColsWidth: function() {
         var o = this.options,
-            width, i = 0;
+            ths = this.head.find("th"),
+            tds = this.body.find("tr:first td"),
+            th, td,
+            width, thWidth,
+            i = 0;
             
+        // browser will auto calc last column width
         for ( ; i < o.columns.length; ++i ) {
             width = o.columns[i].width;
             if ( width ) {
-                this.tds.eq(i).add(this.ths.eq(i)).css( "width", width ); 
+                th = ths.eq(i);
+                td = tds.eq(i);
+                td.add(th).css( "width", width ); 
             }
 
         }
-    }
-});
-
-var classes = {
-        widget: "ui-table",
-        base: "ui-table ui-widget ui-widget-content ui-corner-all",
-        inner: "ui-table-cell-inner"
     },
-    undefined;
+    
+    _ui: function() {
+        return {
+            data: this.options.data,
+            columns: this.options.columns
+        }
+    }
 
-
-var headTemplate = '\
-    <table class="<%=classes.widget%>-head-table" cellspacing="0" cellpadding="0" border="0" width="100%">\
-        <thead>\
-            <tr>\
-                <% for ( var i=0; i<columns.length; ++i) { %>\
-                    <th role="columnheader" >\
-                        <div class="<%=classes.inner%> <%=classes.widget%>-header" unselectable="on">\
-                            <%=columns[i].header%>\
-                        </div>\
-                    </th>\
-                <% } %>\
-            </tr>\
-        </thead>\
-    </table>\
-';
-
-var bodyTemplate = '\
-    <table class="<%=classes.widget%>-body-table" cellspacing="0" cellpadding="0" border="0" width="100%" role="grid">\
-        <tbody>\
-        <% for ( var rowId=0, tdi = 0; rowId<data.length; ++rowId) { %>\
-            <tr role="row">\
-            <% for ( var cell in data[rowId] ) { %>\
-                <% if ( dataIndexHash[cell] ) { %>\
-                    <td class="<%=classes.widget%>-td-<%=(dataIndexHash[cell].id || tdi)%>" role="gridcell">\
-                        <div class="<%=classes.inner%>">\
-                             <%=(dataIndexHash[cell].renderer ? dataIndexHash[cell].renderer(data[rowId][cell], data[rowId], rowId) : data[rowId][cell])%>\
-                        </div>\
-                    </td>\
-                    <% ++tdi; %>\
-                <% } %>\
-            <% } %>\
-            <% tdi = 0; %>\
-            </tr>\
-        <% } %>\
-        </tbody>\
-    </table>\
-';
-
-
+});
 
 /*
  * Detect system scrollbar width
@@ -260,26 +189,13 @@ var scrollbarWidth = (function(){
         if ( width ) 
             return width;
         
-        var $parent = $('<div></div>')
-                        .css({
-                            width: 50,
-                            height: 50,
-                            overflow: 'hidden',
-                            position: 'absolute',
-                            top: -2000,
-                            left: -2000
-                        })
-                        .appendTo('body');
-                        
-        var $child = $('<div style="height:100%;"/>')
-                       .appendTo($parent);
-                        
-        var realWidth = $child.innerWidth();
-                    
+        var $parent = $('<div style="width:50px;height:50px;overflow:hidden;position:absolute;top:-200px;left:-200px;"/>').appendTo('body'),
+            $child = $('<div style="height:100%;"/>').appendTo($parent),
+            realWidth = $child.innerWidth();
+            
         $parent.css('overflow', 'scroll');
         
         width = realWidth - $child.innerWidth();    
-        
         $parent.remove();
         return width;
     }   
@@ -289,7 +205,7 @@ var scrollbarWidth = (function(){
 
 /*
  * micro templating engine
- * can be replaced by new template engine from the core
+ * can be replaced with new template engine from the core
  */
 var tmpl = (function(){
     var cache = {};
@@ -313,7 +229,7 @@ var tmpl = (function(){
         return data ? fn( data ) : fn;
     }
     return tmpl;    
-})()
+})();
 
 
 })( jQuery );
