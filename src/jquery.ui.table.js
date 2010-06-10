@@ -57,10 +57,8 @@ $.widget( "ui.table", {
         });
         
         this.headHeight = this.head.outerHeight();
-        this.width = this.body.width();
         
         this._updateBody();
-        this._setBodyHeight();
    },
     
     destroy: function() {
@@ -86,14 +84,14 @@ $.widget( "ui.table", {
                 });
                 break;
             case "width":
-                this._setColsWidth();
+                this._setDimensions();
                 this.element.css( "width", o.width );
                 this.width = this.body.width();
                 this._trigger( "resize", null, {width: o.width, height: o.height} );
                 break;
             case "height":
                 this.element.css( "height", o.height );
-                this._setBodyHeight();
+                this._setDimensions();
                 this._trigger( "resize", null, {width: o.width, height: o.height} );
                 break;
 
@@ -172,29 +170,30 @@ $.widget( "ui.table", {
         this.body[0].innerHTML = tmpl( bodyTemplate, {
             data: this.options.data,
             classes: classes,
-            dataIndexHash: this.dataIndexHash,
-            width: this.width - scrollbarWidth()
+            dataIndexHash: this.dataIndexHash
         });
 
-        this.bodyTable = this.body.children("table");
-        this.bodyTableHeight = this.bodyTable.height();
+        this.bodyTable = this.body.children( "table" );
         this.ths = this.head.find( "th" );
         this.tds = this.body.find( "tr:first td" );
-        this._setColsWidth();
+        this._setDimensions();
     },     
            
-    _setBodyHeight: function() {
-        this.bodyHeight = this.options.height - this.headHeight;
-        this.body.css("height", this.bodyHeight);
-        this.scrollBar = this.bodyHeight < this.bodyTableHeight;
-        this.head.css( "marginRight", this.scrollBar ? scrollbarWidth() : 0 );
-    },
-    
-    // we have to apply the width to tds and ths, since there are 2 tables
-    _setColsWidth: function() {
-        var o = this.options,
-            width, i = 0;
-            
+    _setDimensions: function() {
+        var o = this.options;
+        
+        this.width = this.body.width();
+        this.height = o.height - this.headHeight;
+        this.body.css( "height", this.height );
+        this.bodyTableHeight = this.bodyTable.height();
+        
+        var scrollBar = this.height < this.bodyTableHeight;
+        
+        this.head.css( "marginRight", scrollBar ? scrollbarWidth() : 0 );
+        this.bodyTable.width( scrollBar ? this.width - scrollbarWidth() : this.width );
+        
+        // we have to apply the width to tds and ths, because there are 2 tables
+        var width, i = 0;
         for ( ; i < o.columns.length; ++i ) {
             width = o.columns[i].width;
             if ( width ) {
@@ -230,7 +229,7 @@ var headTemplate = '\
 ';
 
 var bodyTemplate = '\
-    <table class="<%=classes.widget%>-body-table" cellspacing="0" cellpadding="0" border="0" width="<%=width%>" role="grid">\
+    <table class="<%=classes.widget%>-body-table" cellspacing="0" cellpadding="0" border="0" role="grid">\
         <tbody>\
         <% for ( var rowId=0, tdi = 0; rowId<data.length; ++rowId) { %>\
             <tr role="row">\
