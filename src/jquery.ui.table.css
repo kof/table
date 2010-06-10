@@ -27,6 +27,7 @@
 .ui-table .ui-table-body {
     overflow: auto;
     overflow-x: hidden;
+    display: block;
 }
 .ui-table {
     overflow: hidden;

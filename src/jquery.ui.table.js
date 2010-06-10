@@ -57,7 +57,8 @@ $.widget( "ui.table", {
         });
         
         this.headHeight = this.head.outerHeight();
-
+        this.width = this.body.width();
+        
         this._updateBody();
         this._setBodyHeight();
    },
@@ -87,6 +88,7 @@ $.widget( "ui.table", {
             case "width":
                 this._setColsWidth();
                 this.element.css( "width", o.width );
+                this.width = this.body.width();
                 this._trigger( "resize", null, {width: o.width, height: o.height} );
                 break;
             case "height":
@@ -170,7 +172,8 @@ $.widget( "ui.table", {
         this.body[0].innerHTML = tmpl( bodyTemplate, {
             data: this.options.data,
             classes: classes,
-            dataIndexHash: this.dataIndexHash
+            dataIndexHash: this.dataIndexHash,
+            width: this.width - scrollbarWidth()
         });
 
         this.bodyTable = this.body.children("table");
@@ -227,7 +230,7 @@ var headTemplate = '\
 ';
 
 var bodyTemplate = '\
-    <table class="<%=classes.widget%>-body-table" cellspacing="0" cellpadding="0" border="0" width="100%" role="grid">\
+    <table class="<%=classes.widget%>-body-table" cellspacing="0" cellpadding="0" border="0" width="<%=width%>" role="grid">\
         <tbody>\
         <% for ( var rowId=0, tdi = 0; rowId<data.length; ++rowId) { %>\
             <tr role="row">\
