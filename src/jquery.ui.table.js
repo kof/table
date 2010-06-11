@@ -176,6 +176,7 @@ $.widget( "ui.table", {
         this.bodyTable = this.body.children( "table" );
         this.ths = this.head.find( "th" );
         this.tds = this.body.find( "tr:first td" );
+        
         this._setDimensions();
     },     
            
@@ -183,11 +184,12 @@ $.widget( "ui.table", {
         var o = this.options;
         
         this.width = this.body.width();
-        this.height = o.height - this.headHeight;
-        this.body.css( "height", this.height );
+        this.height = this.element.height();
+        this.bodyHeight = this.height - this.headHeight;
+        this.body.css( "height", this.bodyHeight );
         this.bodyTableHeight = this.bodyTable.height();
         
-        var scrollBar = this.height < this.bodyTableHeight;
+        var scrollBar = this.bodyHeight < this.bodyTableHeight;
         
         this.head.css( "marginRight", scrollBar ? scrollbarWidth() : 0 );
         this.bodyTable.width( scrollBar ? this.width - scrollbarWidth() : this.width );
