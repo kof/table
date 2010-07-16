@@ -12,6 +12,15 @@
  *   jquery.ui.widget.js
  */
 (function( $ ) {
+    
+
+var _super = $.Widget.prototype,
+    classes = {
+        widget: "ui-table",
+        base: "ui-table ui-widget ui-widget-content ui-corner-all",
+        inner: "ui-table-cell-inner"
+    },
+    undefined;    
 
 $.widget( "ui.table", {
     version: "@VERSION",
@@ -21,9 +30,10 @@ $.widget( "ui.table", {
         width: "100%",
         height: "100%",
         type: "text",
-        speed: 300
+        speed: 300,
+        classes: classes
     },
- 
+    
     _create: function() {
         var o = this.options;
         
@@ -57,8 +67,7 @@ $.widget( "ui.table", {
         });
         
         this.headHeight = this.head.outerHeight();
-        
-        this._updateBody();
+        this._updateBody( o.data );
    },
     
     destroy: function() {
@@ -67,11 +76,11 @@ $.widget( "ui.table", {
             .removeAttr( "role" )
             .html( this.originalHtml );
             
-        $.Widget.prototype.destroy.apply( this, arguments );
+        _super.destroy.apply( this, arguments );
     },
          
     _setOption: function( key, value ) {
-        $.Widget.prototype._setOption.apply( this, arguments );
+        _super._setOption.apply( this, arguments );
 
         var o = this.options;
         
@@ -84,13 +93,12 @@ $.widget( "ui.table", {
                 });
                 break;
             case "width":
+                this.element.width( o.width );
                 this._setDimensions();
-                this.element.css( "width", o.width );
-                this.width = this.body.width();
                 this._trigger( "resize", null, {width: o.width, height: o.height} );
                 break;
             case "height":
-                this.element.css( "height", o.height );
+                this.element.height( o.height );
                 this._setDimensions();
                 this._trigger( "resize", null, {width: o.width, height: o.height} );
                 break;
@@ -102,30 +110,44 @@ $.widget( "ui.table", {
         if ( data ) {
             this._setOption( "data", data );
         }
-        this._updateBody();
+        this._updateBody( data );
     },     
     
     scrollToRow: function( nr, speed, easing, callback ) {
+        var o = this.options;
+        
         if ( nr < 0 ) {
             nr = 0;
-        } else if ( nr > this.options.data.length-1 ) {
-            nr = this.options.data.length-1;
+        } else if ( nr > o.data.length-1 ) {
+            nr = o.data.length-1;
         }
 
-        var offsetTop = $("tr:eq(" + nr + ")", this.body)[0].offsetTop;
-        this.body.animate({scrollTop: offsetTop }, speed || this.options.speed, easing, callback);
+        var offsetTop = this.body.find( "tr:eq(" + nr + ")" )[0].offsetTop;
+        
+        this.body.animate(
+            {scrollTop: offsetTop}, 
+            speed || o.speed, 
+            easing, 
+            callback
+        );
     },
     
     filter: function( value, columns, caseSensitive ) {
-        value = $.trim( value );
-        this.options.data = !value || !columns ? this.originalData : this.find.apply( this, arguments );
-        this._updateBody();
+        this.options.data = value !== undefined && columns ? this.find.apply( this, arguments ) : this.originalData;
+        this._updateBody( this.options.data );
     },
     
+    // remove a row by index
+    remove: function( index ) {
+        this.originalData.splice( index, 1 );
+        $( '#' + classes.widget + '-row-' + index ).remove();        
+    },
+
     find: function( value, columns, caseSensitive ) {
-        if ( !caseSensitive && typeof value == "string" ) {
+        if ( !caseSensitive && typeof value === "string" ) {
             value = value.toLowerCase();
         }
+        
             // always search in original data array            
         var data = this.originalData,
             newData = [],
@@ -134,8 +156,8 @@ $.widget( "ui.table", {
             
         for ( var i = 0; i < columns.length; ++i ) {
             col = columns[i];
-            for ( var rowId = 0; rowId < data.length; ++rowId ) {
-                row = data[rowId];
+            for ( var rowIndex = 0; rowIndex < data.length; ++rowIndex ) {
+                row = data[rowIndex];
                 cell = row[col];                 
                 if ( cell !== undefined ) {
                     type = this.dataIndexHash[col].type;
@@ -153,8 +175,12 @@ $.widget( "ui.table", {
                         if ( cell === value ) {
                             newData.push( row );
                         }       
+                    } else if ( type === "boolean" ) {
+                        if ( cell === value ) {
+                            newData.push( row );
+                        }       
                     } else if ( filterHandler  ) {
-                        if ( filterHandler( value, row, rowId ) ) {
+                        if ( filterHandler( value, row, rowIndex ) ) {
                             newData.push( row );                            
                         }
                     }                    
@@ -165,10 +191,10 @@ $.widget( "ui.table", {
         return newData;     
     },
     
-    _updateBody: function() {
+    _updateBody: function( data ) {
         // don't use .html to get more performance       
         this.body[0].innerHTML = tmpl( bodyTemplate, {
-            data: this.options.data,
+            data: data,
             classes: classes,
             dataIndexHash: this.dataIndexHash
         });
@@ -176,7 +202,7 @@ $.widget( "ui.table", {
         this.bodyTable = this.body.children( "table" );
         this.ths = this.head.find( "th" );
         this.tds = this.body.find( "tr:first td" );
-        
+
         this._setDimensions();
     },     
            
@@ -186,32 +212,26 @@ $.widget( "ui.table", {
         this.width = this.body.width();
         this.height = this.element.height();
         this.bodyHeight = this.height - this.headHeight;
-        this.body.css( "height", this.bodyHeight );
         this.bodyTableHeight = this.bodyTable.height();
-        
         var scrollBar = this.bodyHeight < this.bodyTableHeight;
+
         
+
+        this.body.height( this.bodyHeight );  
         this.head.css( "marginRight", scrollBar ? scrollbarWidth() : 0 );
         this.bodyTable.width( scrollBar ? this.width - scrollbarWidth() : this.width );
         
         // we have to apply the width to tds and ths, because there are 2 tables
-        var width, i = 0;
-        for ( ; i < o.columns.length; ++i ) {
+        for ( var i = 0, width; i < o.columns.length; ++i ) {
             width = o.columns[i].width;
             if ( width ) {
-                this.tds.eq(i).add(this.ths.eq(i)).css( "width", width ); 
+                this.tds.eq(i).add( this.ths.eq(i) ).width( width ); 
             }
-
         }
+
     }
 });
 
-var classes = {
-        widget: "ui-table",
-        base: "ui-table ui-widget ui-widget-content ui-corner-all",
-        inner: "ui-table-cell-inner"
-    },
-    undefined;
 
 
 var headTemplate = '\
@@ -219,11 +239,13 @@ var headTemplate = '\
         <thead>\
             <tr>\
                 <% for ( var i=0; i<columns.length; ++i) { %>\
-                    <th role="columnheader" >\
-                        <div class="<%=classes.inner%> <%=classes.widget%>-header" unselectable="on">\
-                            <%=columns[i].header%>\
-                        </div>\
-                    </th>\
+                    <% if ( columns[i].visible !== false ) { %>\
+                        <th role="columnheader" >\
+                            <div class="<%=classes.inner%> <%=classes.widget%>-header" unselectable="on">\
+                                <%=columns[i].header%>\
+                            </div>\
+                        </th>\
+                    <% } %>\
                 <% } %>\
             </tr>\
         </thead>\
@@ -233,13 +255,13 @@ var headTemplate = '\
 var bodyTemplate = '\
     <table class="<%=classes.widget%>-body-table" cellspacing="0" cellpadding="0" border="0" role="grid">\
         <tbody>\
-        <% for ( var rowId=0, tdi = 0; rowId<data.length; ++rowId) { %>\
-            <tr role="row">\
-            <% for ( var cell in data[rowId] ) { %>\
-                <% if ( dataIndexHash[cell] ) { %>\
+        <% for ( var rowIndex=0, tdi = 0; rowIndex<data.length; ++rowIndex) { %>\
+            <tr role="row" id="<%=classes.widget%>-row-<%=rowIndex%>">\
+            <% for ( var cell in data[rowIndex] ) { %>\
+                <% if ( dataIndexHash[cell] && dataIndexHash[cell].visible !== false ) { %>\
                     <td class="<%=classes.widget%>-td-<%=(dataIndexHash[cell].id || tdi)%>" role="gridcell">\
                         <div class="<%=classes.inner%>">\
-                             <%=(dataIndexHash[cell].renderer ? dataIndexHash[cell].renderer(data[rowId][cell], data[rowId], rowId) : data[rowId][cell])%>\
+                             <%=(dataIndexHash[cell].renderer ? dataIndexHash[cell].renderer(data[rowIndex][cell], data[rowIndex], rowIndex) : data[rowIndex][cell])%>\
                         </div>\
                     </td>\
                     <% ++tdi; %>\
