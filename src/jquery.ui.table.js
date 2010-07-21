@@ -133,8 +133,8 @@ $.widget( "ui.table", {
     },
     
     filter: function( value, columns, caseSensitive ) {
-        this.options.data = value !== undefined && columns ? this.find.apply( this, arguments ) : this.originalData;
-        this._updateBody( this.options.data );
+        var data = value !== undefined && columns ? this.find.apply( this, arguments ) : this.originalData;
+        this._updateBody( data );
     },
     
     // remove a row by index
@@ -150,45 +150,53 @@ $.widget( "ui.table", {
         
             // always search in original data array            
         var data = this.originalData,
-            newData = [],
-            col, row, cell,
-            type, filterHandler;
+            searchData = [],
+            colName, row, cell,
+            type, filterHandler,
+            match;
             
-        for ( var i = 0; i < columns.length; ++i ) {
-            col = columns[i];
-            for ( var rowIndex = 0; rowIndex < data.length; ++rowIndex ) {
+        for ( var rowIndex = 0; rowIndex < data.length; ++rowIndex ) {
+            for ( var i = 0; i < columns.length; ++i ) {
+                colName = columns[i];
                 row = data[rowIndex];
-                cell = row[col];                 
+                cell = row[colName];                 
                 if ( cell !== undefined ) {
-                    type = this.dataIndexHash[col].type;
-                    filterHandler = this.dataIndexHash[col].filterHandler;
+                    type = this.dataIndexHash[colName].type;
+                    filterHandler = this.dataIndexHash[colName].filterHandler;
                     
-                    if ( !type || type === "string" ) {
+                    if ( type === "string" ) {
                         if ( !caseSensitive ) {
                             cell = cell.toLowerCase();
                         }
                         if ( cell.indexOf( value ) >= 0 ) {
-                            newData.push( row );
+                            match = true;
                         }
                     } else if ( type === "number" ) {
                         value = parseInt( value ); 
                         if ( cell === value ) {
-                            newData.push( row );
+                            match = true;
                         }       
                     } else if ( type === "boolean" ) {
                         if ( cell === value ) {
-                            newData.push( row );
+                            match = true;
                         }       
                     } else if ( filterHandler  ) {
                         if ( filterHandler( value, row, rowIndex ) ) {
-                            newData.push( row );                            
+                            match = true;
                         }
                     }                    
+                    
+                    if ( match ) {
+                        searchData.push( row );
+                        match = false;
+                        break;
+                    }
+
                 }
             }    
         }           
 
-        return newData;     
+        return searchData;     
     },
     
     _updateBody: function( data ) {
