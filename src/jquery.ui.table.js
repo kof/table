@@ -133,8 +133,9 @@ $.widget( "ui.table", {
     },
     
     filter: function( value, columns, caseSensitive ) {
-        var data = value !== undefined && columns ? this.find.apply( this, arguments ) : this.originalData;
-        this._updateBody( data );
+        var o = this.options;
+        o.data = value !== undefined && columns ? this.find.apply( this, arguments ) : this.originalData;
+        this._updateBody( o.data );
     },
     
     // remove a row by index
